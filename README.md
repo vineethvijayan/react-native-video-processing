@@ -19,13 +19,6 @@ yarn add react-native-video-processing
 	cd ios && pod install
 ```
 
-**iOS Prerequisite:** Please make sure `CocoaPods` is installed on your system
-```
-- Add the line below to your `Podfile` -> `ios/Podfile` and run pod install:
-
-pod 'GPUImage', git: 'https://github.com/BunHouth/GPUImage.git'
-```
-
 **Note: For RN 0.4x use 1.0 version, for RN 0.3x use 0.16**
 
 #### [Android]
