@@ -215,9 +215,9 @@ class RNVideoPlayer: RCTView {
 //            let currentTime = CGFloat(CMTimeGetSeconds(player.currentTime()))
 //            var shouldBeCurrentTime: CGFloat = currentTime;
 
-            if self._playerEndTime < currentTime {
-                shouldBeCurrentTime = self._playerStartTime
-            }
+//            if self._playerEndTime < currentTime {
+//                shouldBeCurrentTime = self._playerStartTime
+//            }
 
 //            if player != nil {
 //                player.seek(
