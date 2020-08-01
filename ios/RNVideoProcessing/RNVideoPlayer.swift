@@ -212,20 +212,20 @@ class RNVideoPlayer: RCTView {
                 self._playerEndTime = CGFloat(CMTimeGetSeconds((player.currentItem?.asset.duration)!))
             }
 
-            let currentTime = CGFloat(CMTimeGetSeconds(player.currentTime()))
-            var shouldBeCurrentTime: CGFloat = currentTime;
+//            let currentTime = CGFloat(CMTimeGetSeconds(player.currentTime()))
+//            var shouldBeCurrentTime: CGFloat = currentTime;
 
             if self._playerEndTime < currentTime {
                 shouldBeCurrentTime = self._playerStartTime
             }
 
-            if player != nil {
-                player.seek(
-                    to: convertToCMTime(val: shouldBeCurrentTime),
-                    toleranceBefore: convertToCMTime(val: self._playerStartTime),
-                    toleranceAfter: convertToCMTime(val: self._playerEndTime)
-                )
-            }
+//            if player != nil {
+//                player.seek(
+//                    to: convertToCMTime(val: shouldBeCurrentTime),
+//                    toleranceBefore: convertToCMTime(val: self._playerStartTime),
+//                    toleranceAfter: convertToCMTime(val: self._playerEndTime)
+//                )
+//            }
             print("CHANGED endTime \(val)")
         }
         get {
