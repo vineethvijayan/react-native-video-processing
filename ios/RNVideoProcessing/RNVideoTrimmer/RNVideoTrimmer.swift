@@ -200,112 +200,67 @@ class RNVideoTrimmer: NSObject {
 
       let sourceURL = getSourceURL(source: source)
       let asset = AVAsset(url: sourceURL as URL)
+      if eTime == nil {
+          eTime = Float(asset.duration.seconds)
+      }
+      if sTime == nil {
+          sTime = 0
+      }
+      var outputURL = documentDirectory.appendingPathComponent("output")
+      do {
+          try manager.createDirectory(at: outputURL, withIntermediateDirectories: true, attributes: nil)
+          let name = randomString()
+          outputURL = outputURL.appendingPathComponent("\(name).mp4")
+      } catch {
+          callback([error.localizedDescription, NSNull()])
+          print(error)
+      }
 
-      asset.loadValuesAsynchronously(forKeys: [ "exportable", "tracks" ]) {
-        precondition(asset.statusOfValue(forKey: "exportable", error: nil) == .loaded)
-        precondition(asset.statusOfValue(forKey: "tracks", error: nil) == .loaded)
-        precondition(asset.isExportable)
+      //Remove existing file
+      _ = try? manager.removeItem(at: outputURL)
 
-        if eTime == nil {
-            eTime = Float(asset.duration.seconds)
-        }
-        if sTime == nil {
-            sTime = 0
-        }
+      let useQuality = getQualityForAsset(quality: quality, asset: asset)
 
-        let startTime = CMTime(seconds: Double(sTime!), preferredTimescale: 1000)
-        let endTime = CMTime(seconds: Double(eTime!), preferredTimescale: 1000)
-        let timeRange = CMTimeRange(start: startTime, end: endTime)
+      print("RNVideoTrimmer passed quality: \(quality). useQuality: \(useQuality)")
 
-        let composition = AVMutableComposition()
-        let track = composition.addMutableTrack(withMediaType: .video, preferredTrackID: Int32(kCMPersistentTrackID_Invalid))
-        let videoOrientation = self.getVideoOrientationFromAsset(asset: asset)
+      guard let exportSession = AVAssetExportSession(asset: asset, presetName: useQuality)
+          else {
+              callback(["Error creating AVAssetExportSession", NSNull()])
+              return
+      }
+      exportSession.outputURL = NSURL.fileURL(withPath: outputURL.path)
+      exportSession.outputFileType = .mp4
+      exportSession.shouldOptimizeForNetworkUse = true
 
-        if ( videoOrientation == .up  ) {
-          var transforms: CGAffineTransform?
-          transforms = track?.preferredTransform
-          transforms = CGAffineTransform(rotationAngle: 0)
-          transforms = transforms?.concatenating(CGAffineTransform(rotationAngle: CGFloat(90.0 * .pi / 180)))
-          track?.preferredTransform = transforms!
-        }
-        else if ( videoOrientation == .down ) {
-          var transforms: CGAffineTransform?
-          transforms = track?.preferredTransform
-          transforms = CGAffineTransform(rotationAngle: 0)
-          transforms = transforms?.concatenating(CGAffineTransform(rotationAngle: CGFloat(270.0 * .pi / 180)))
-          track?.preferredTransform = transforms!
-        }
-        else if ( videoOrientation == .left ) {
-          var transforms: CGAffineTransform?
-          transforms = track?.preferredTransform
-          transforms = CGAffineTransform(rotationAngle: 0)
-          transforms = transforms?.concatenating(CGAffineTransform(rotationAngle: CGFloat(180.0 * .pi / 180)))
-          track?.preferredTransform = transforms!
-        }
+      if saveToCameraRoll && saveWithCurrentDate {
+        let metaItem = AVMutableMetadataItem()
+        metaItem.key = AVMetadataKey.commonKeyCreationDate as (NSCopying & NSObjectProtocol)
+        metaItem.keySpace = .common
+        metaItem.value = NSDate()
+        exportSession.metadata = [metaItem]
+      }
 
-        do {
-          try composition.insertTimeRange(timeRange, of: asset, at: CMTime.zero)
-        } catch {
-          callback(["Error inserting time range", NSNull()])
-          // Error handling code here
-          return
-        }
+      let startTime = CMTime(seconds: Double(sTime!), preferredTimescale: 1000)
+      let endTime = CMTime(seconds: Double(eTime!), preferredTimescale: 1000)
+      let timeRange = CMTimeRange(start: startTime, end: endTime)
 
-        var outputURL = documentDirectory.appendingPathComponent("output")
-        do {
-            try manager.createDirectory(at: outputURL, withIntermediateDirectories: true, attributes: nil)
-            let name = self.randomString()
-            outputURL = outputURL.appendingPathComponent("\(name).mp4")
-        } catch {
-            callback([error.localizedDescription, NSNull()])
-            print(error)
-        }
+      exportSession.timeRange = timeRange
+      exportSession.exportAsynchronously{
+          switch exportSession.status {
+          case .completed:
+              callback( [NSNull(), outputURL.absoluteString] )
+              if saveToCameraRoll {
+                  UISaveVideoAtPathToSavedPhotosAlbum(outputURL.relativePath, self, nil, nil)
+              }
 
-        //Remove existing file
-        _ = try? manager.removeItem(at: outputURL)
+          case .failed:
+              callback( ["Failed: \(exportSession.error)", NSNull()] )
 
-        let finalComposition = composition.copy() as! AVComposition
-        let useQuality = self.getQualityForAsset(quality: quality, asset: asset)
+          case .cancelled:
+              callback( ["Cancelled: \(exportSession.error)", NSNull()] )
 
-        print("RNVideoTrimmer passed quality: \(quality). useQuality: \(useQuality)")
-
-        guard let exportSession = AVAssetExportSession(asset: finalComposition, presetName: useQuality)
-            else {
-                callback(["Error creating AVAssetExportSession", NSNull()])
-                return
-        }
-        exportSession.outputURL = NSURL.fileURL(withPath: outputURL.path)
-        exportSession.outputFileType = .mp4
-        exportSession.shouldOptimizeForNetworkUse = true
-
-        if saveToCameraRoll && saveWithCurrentDate {
-          let metaItem = AVMutableMetadataItem()
-          metaItem.key = AVMetadataKey.commonKeyCreationDate as (NSCopying & NSObjectProtocol)
-          metaItem.keySpace = .common
-          metaItem.value = NSDate()
-          exportSession.metadata = [metaItem]
-        }
-
-
-
-        exportSession.timeRange = timeRange
-        exportSession.exportAsynchronously{
-            switch exportSession.status {
-            case .completed:
-                callback( [NSNull(), outputURL.absoluteString] )
-                if saveToCameraRoll {
-                    UISaveVideoAtPathToSavedPhotosAlbum(outputURL.relativePath, self, nil, nil)
-                }
-
-            case .failed:
-                callback( ["Failed: \(exportSession.error)", NSNull()] )
-
-            case .cancelled:
-                callback( ["Cancelled: \(exportSession.error)", NSNull()] )
-
-            default: break
-            }
-        }
+          default: break
+          }
       }
   }
 
@@ -337,7 +292,7 @@ class RNVideoTrimmer: NSObject {
       track?.preferredTransform = transforms!
     }
     //end of fix
-
+    
     var outputURL = documentDirectory.appendingPathComponent("output")
     var finalURL = documentDirectory.appendingPathComponent("output")
     do {
